@@ -28,9 +28,11 @@ export default function Dashboard() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // In a real app, you'd validate against a backend service
-    // For demo purposes, we're using a hardcoded credential
-    if (username === 'tarapandey' && password === 'admin123') {
+    // Use environment variables for credentials instead of hardcoded values
+    const validUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'tarapandey';
+    const validPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
+    
+    if (username === validUsername && password === validPassword) {
       setIsAuthenticated(true);
       localStorage.setItem('dashboard_auth', 'true');
       setError('');
@@ -100,7 +102,7 @@ export default function Dashboard() {
           </form>
           
           <div className="mt-8 pt-6 border-t border-gray-200 text-center text-gray-500">
-            For demo use: tarapandey / admin123
+            
           </div>
         </div>
       </div>

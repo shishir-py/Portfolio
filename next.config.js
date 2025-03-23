@@ -8,11 +8,22 @@ const nextConfig = {
       // Disable TypeScript checks during builds
       ignoreBuildErrors: true,
     },
-    // Help fix the blog/[slug] React Client Manifest error
-    experimental: {
-      serverComponentsExternalPackages: [],
-      esmExternals: false
-    }
+    // External packages configuration (fixed from serverComponentsExternalPackages)
+    serverExternalPackages: [],
+    
+    // Optionally add image domains if you're using external images
+    images: {
+      domains: ['placehold.co'],
+      dangerouslyAllowSVG: true,
+    },
+    
+    // Environment variables that will be used client-side
+    // These are exposed to the browser - be careful what you add here!
+    env: {
+      NEXT_PUBLIC_ADMIN_USERNAME: process.env.NEXT_PUBLIC_ADMIN_USERNAME,
+      NEXT_PUBLIC_ADMIN_PASSWORD: process.env.NEXT_PUBLIC_ADMIN_PASSWORD,
+    },
   };
+
   
   module.exports = nextConfig;
