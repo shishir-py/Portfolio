@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import DataPipeline from '../components/DataPipeline';
+import SkillMeter from '../components/SkillMeter';
 
 export default function About() {
   const [aboutData, setAboutData] = useState({
@@ -172,6 +174,69 @@ export default function About() {
           </div>
         </div>
         
+        {/* Professional Summary Section */}
+        <div className="mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className="px-6 py-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+              <span className="bg-blue-600 p-2 rounded-md text-white mr-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </span>
+              Professional Summary
+            </h2>
+            
+            <p className="text-gray-800 leading-relaxed bg-blue-50 p-6 rounded-lg border-l-4 border-blue-600">
+              {aboutData.professionalSummary}
+            </p>
+          </div>
+        </div>
+        
+        {/* Data Analysis Pipeline Section */}
+        <div className="mt-8">
+          <DataPipeline 
+            title="My Data Analysis Workflow"
+            description="A step-by-step approach to transform raw data into actionable insights"
+            steps={[
+              {
+                id: 'data-collection',
+                title: 'Data Collection',
+                description: 'Gather data from various sources including databases, APIs, and files with focus on data completeness and relevance.',
+                icon: '📊',
+                color: 'bg-blue-500'
+              },
+              {
+                id: 'data-cleaning',
+                title: 'Data Cleaning',
+                description: 'Process raw data to handle missing values, outliers, and inconsistencies to ensure high quality inputs for analysis.',
+                icon: '🧹',
+                color: 'bg-green-500'
+              },
+              {
+                id: 'exploratory-analysis',
+                title: 'Exploratory Analysis',
+                description: 'Discover patterns, trends, and relationships in the data through statistical methods and visualization techniques.',
+                icon: '🔍',
+                color: 'bg-purple-500'
+              },
+              {
+                id: 'modeling',
+                title: 'Modeling',
+                description: 'Apply machine learning and statistical models to make predictions, identify patterns, or segment data.',
+                icon: '🤖',
+                color: 'bg-yellow-500'
+              },
+              {
+                id: 'visualization',
+                title: 'Visualization',
+                description: 'Create clear, informative visualizations that communicate findings effectively to stakeholders.',
+                icon: '📈',
+                color: 'bg-red-500'
+              }
+            ]}
+          />
+        </div>
+        
         {/* Skills section - Updated with different styling */}
         <div className="mt-8 bg-white shadow rounded-lg overflow-hidden">
           <div className="px-6 py-8">
@@ -184,22 +249,41 @@ export default function About() {
               Skills
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-              {aboutData.skills.map((skill, index) => (
-                <div key={index} className="bg-gray-50 p-5 rounded-lg shadow border-l-4 border-blue-600">
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">{skill.category}</h3>
-                  <ul className="space-y-2">
-                    {skill.items.map((item, i) => (
-                      <li key={i} className="flex items-center">
-                        <svg className="h-5 w-5 text-blue-600 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-gray-800 font-medium">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+              {/* Technical Skills with Meters */}
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Technical Expertise</h3>
+                <div className="space-y-1 mt-4">
+                  <SkillMeter skill="Python" percentage={90} color="bg-blue-600" />
+                  <SkillMeter skill="Data Analysis" percentage={95} color="bg-purple-600" />
+                  <SkillMeter skill="SQL" percentage={85} color="bg-green-600" />
+                  <SkillMeter skill="Machine Learning" percentage={80} color="bg-yellow-600" />
+                  <SkillMeter skill="Data Visualization" percentage={90} color="bg-red-600" />
+                  <SkillMeter skill="Statistical Analysis" percentage={85} color="bg-indigo-600" />
                 </div>
-              ))}
+              </div>
+              
+              {/* Category-based Skills */}
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Skill Categories</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {aboutData.skills.map((skill, index) => (
+                    <div key={index} className="bg-gray-50 p-5 rounded-lg shadow border-l-4 border-blue-600">
+                      <h3 className="text-lg font-bold text-gray-900 mb-3">{skill.category}</h3>
+                      <ul className="space-y-2">
+                        {skill.items.map((item, i) => (
+                          <li key={i} className="flex items-center">
+                            <svg className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-gray-800 font-medium">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
