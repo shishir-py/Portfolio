@@ -13,7 +13,7 @@ const nextConfig = {
     
     // Optionally add image domains if you're using external images
     images: {
-      domains: ['placehold.co'],
+      domains: ['placehold.co', 'res.cloudinary.com'],
       dangerouslyAllowSVG: true,
     },
     

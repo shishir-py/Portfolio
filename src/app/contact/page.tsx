@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import emailjs from 'emailjs-com';
+import { init, send } from 'emailjs-com';
 
 export default function Contact() {
   const [formState, setFormState] = useState({
@@ -13,6 +13,7 @@ export default function Contact() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isError, setIsError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [contactInfo, setContactInfo] = useState({
     email: 'sheahead22@gmail.com',
     phone: '+1 (555) 123-4567',
@@ -21,6 +22,19 @@ export default function Contact() {
   const [errors, setErrors] = useState({
     email: ''
   });
+
+  // Initialize EmailJS on component mount
+  useEffect(() => {
+    // Check if EmailJS user ID is available
+    const userId = process.env.NEXT_PUBLIC_EMAILJS_USER_ID;
+    if (userId) {
+      // Initialize EmailJS with the user ID
+      init(userId);
+      console.log('EmailJS initialized');
+    } else {
+      console.warn('EmailJS user ID not found. Email functionality will not work.');
+    }
+  }, []);
 
   // Load profile data from localStorage if available
   useEffect(() => {
@@ -67,12 +81,18 @@ export default function Contact() {
     setIsSubmitting(true);
     setIsSuccess(false);
     setIsError(false);
+    setErrorMessage('');
 
     try {
-      // EmailJS configuration - you need to replace these with your actual EmailJS service IDs
-      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
-      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID';
-      const userId = process.env.NEXT_PUBLIC_EMAILJS_USER_ID || 'YOUR_USER_ID';
+      // EmailJS configuration
+      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+      
+      // Check if EmailJS configuration is available
+      if (!serviceId || !templateId) {
+        console.error('EmailJS service or template ID is missing. Please check your environment variables.');
+        throw new Error('Email service configuration is missing');
+      }
       
       // Prepare template parameters
       const templateParams = {
@@ -84,11 +104,18 @@ export default function Contact() {
       };
 
       // Log the email attempt for debugging
-      console.log('Sending email to:', contactInfo.email);
-      console.log('Form data:', formState);
+      console.log('Attempting to send email with EmailJS');
+      console.log('Using service ID:', serviceId);
+      console.log('Using template ID:', templateId);
       
-      // Send email using EmailJS
-      await emailjs.send(serviceId, templateId, templateParams, userId);
+      // Send email using EmailJS (using named import)
+      const response = await send(
+        serviceId, 
+        templateId, 
+        templateParams
+      );
+      
+      console.log('Email sent successfully:', response);
       
       // Reset form
       setFormState({
@@ -99,9 +126,38 @@ export default function Contact() {
       });
       
       setIsSuccess(true);
-    } catch (error) {
+    } catch (error: any) {
+      // More detailed error logging
       console.error('Email sending error:', error);
+      
+      if (error.text) {
+        console.error('EmailJS error text:', error.text);
+      }
+      
+      if (error.name) {
+        console.error('Error name:', error.name);
+      }
+      
+      if (error.message) {
+        console.error('Error message:', error.message);
+      }
+      
       setIsError(true);
+      
+      // Set a more specific error message for the user
+      if (error.message) {
+        if (error.message.includes('configuration is missing')) {
+          setErrorMessage('The email service is not properly configured. Please contact the site administrator.');
+        } else if (error.message.includes('Network Error')) {
+          setErrorMessage('Could not connect to the email service. Please check your internet connection and try again.');
+        } else {
+          setErrorMessage(`Error: ${error.message}`);
+        }
+      } else if (error.text) {
+        setErrorMessage(`Error: ${error.text}`);
+      } else {
+        setErrorMessage('Something went wrong while sending your message. Please try again later.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -253,22 +309,36 @@ export default function Contact() {
                   </div>
                 </div>
                 
+                {/* Show error message if email sending failed */}
+                {isError && (
+                  <div className="mt-3 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                    <p>{errorMessage || 'Sorry, we couldn\'t send your message. Please try again later or contact directly via email.'}</p>
+                    <p className="text-sm mt-1">You can also email directly to: {contactInfo.email}</p>
+                  </div>
+                )}
+                
                 <div>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    className={`mt-6 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white ${
+                      isSubmitting ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+                    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
                   >
-                    {isSubmitting ? 'Sending...' : 'Submit'}
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Sending...
+                      </>
+                    ) : (
+                      'Send Message'
+                    )}
                   </button>
                 </div>
               </div>
-              
-              {isError && (
-                <div className="mt-4 text-red-600 text-sm font-medium bg-red-50 p-3 rounded-md">
-                  There was an error sending your message. Please try again or email directly to {contactInfo.email}.
-                </div>
-              )}
             </form>
           </div>
         </div>

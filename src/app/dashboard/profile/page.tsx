@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import ProfileForm from '../../components/ProfileForm';
 
-// Mock data - in a real app, this would come from a database
-const initialProfile = {
+// Default profile data as fallback
+const defaultProfile = {
   name: 'Tara Prasad Pandey',
   title: 'Data Analyst',
   email: 'sheahead22@gmail.com',
@@ -19,9 +19,12 @@ const initialProfile = {
 };
 
 export default function ProfileManagement() {
-  const [profile, setProfile] = useState(initialProfile);
+  const [profile, setProfile] = useState(defaultProfile);
   const [isEditing, setIsEditing] = useState(false);
   const [hasUpdated, setHasUpdated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
   
   // Check authentication
@@ -30,88 +33,102 @@ export default function ProfileManagement() {
       const authStatus = localStorage.getItem('dashboard_auth');
       if (authStatus !== 'true') {
         router.push('/dashboard');
+      } else {
+        // Fetch profile from the database API
+        fetchProfile();
       }
     }
   }, [router]);
 
-  // Get profile from localStorage or use initial data
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
+  // Fetch profile from the API
+  const fetchProfile = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/profile');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+      
+      const data = await response.json();
+      setProfile(data);
+      
+      // Also store in localStorage for compatibility with other components
+      localStorage.setItem('profile_data', JSON.stringify(data));
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      setError('Failed to load profile data. Please try again.');
+      
+      // Use profile from localStorage as fallback
       const savedProfile = localStorage.getItem('profile_data');
       if (savedProfile) {
         setProfile(JSON.parse(savedProfile));
       }
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
-  
-  // Listen for storage changes from other tabs
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'profile_data' && e.newValue) {
-        try {
-          setProfile(JSON.parse(e.newValue));
-        } catch (error) {
-          console.error('Error parsing profile data:', error);
-        }
-      }
-    };
-
-    // Add event listener
-    if (typeof window !== 'undefined') {
-      window.addEventListener('storage', handleStorageChange);
-    }
-
-    // Clean up
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('storage', handleStorageChange);
-      }
-    };
-  }, []);
+  };
   
   const handleEdit = () => {
     setIsEditing(true);
   };
   
-  const handleFormSubmit = (profileData) => {
-    // Update profile state
-    setProfile(profileData);
-    setIsEditing(false);
-    setHasUpdated(true);
-    
-    // In a real application, you would save this data to a database
-    console.log('Profile updated:', profileData);
-    
-    // Store in localStorage to make it available across pages
-    localStorage.setItem('profile_data', JSON.stringify(profileData));
-    
-    // Force a custom storage event on this window to ensure this tab also updates
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'profile_data',
-        newValue: JSON.stringify(profileData)
-      }));
-    }
-    
-    // Sync with contact page
+  const handleFormSubmit = async (profileData) => {
     try {
-      const contactPageElement = document.querySelector('#contact-phone');
-      if (contactPageElement) {
-        contactPageElement.textContent = profileData.phone;
+      setIsSubmitting(true);
+      
+      // Save to the database via API
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
       }
+      
+      // Get the updated profile
+      const updatedProfile = await response.json();
+      
+      // Update state
+      setProfile(updatedProfile);
+      setIsEditing(false);
+      setHasUpdated(true);
+      
+      // Store in localStorage for compatibility with other components
+      localStorage.setItem('profile_data', JSON.stringify(updatedProfile));
+      
+      // Hide success message after a delay
+      setTimeout(() => {
+        setHasUpdated(false);
+      }, 3000);
     } catch (error) {
-      console.log('Could not directly update contact page:', error);
+      console.error('Error updating profile:', error);
+      setError('Failed to update profile. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    // Force refresh after a short delay to update any page that might use this data
-    setTimeout(() => {
-      setHasUpdated(false);
-    }, 3000);
   };
   
   const handleFormCancel = () => {
     setIsEditing(false);
   };
+  
+  if (isLoading) {
+    return (
+      <div className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">Loading...</h2>
+            <p className="text-gray-500">Please wait while we load your profile.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   if (isEditing) {
     return (
@@ -120,7 +137,8 @@ export default function ProfileManagement() {
           <ProfileForm 
             profile={profile} 
             onSubmit={handleFormSubmit} 
-            onCancel={handleFormCancel} 
+            onCancel={handleFormCancel}
+            isSubmitting={isSubmitting}
           />
         </div>
       </div>
@@ -154,6 +172,21 @@ export default function ProfileManagement() {
           </div>
         </div>
         
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 112 0v4a1 1 0 11-2 0V9zm1-5a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {hasUpdated && (
           <div className="mt-4 p-4 bg-green-50 border-l-4 border-green-500 rounded-md">
             <div className="flex">
@@ -176,23 +209,13 @@ export default function ProfileManagement() {
             <div className="md:flex-shrink-0 mb-4 md:mb-0">
               <div className="h-48 w-48 rounded-lg bg-gray-100 overflow-hidden relative">
                 {profile.imageUrl ? (
-                  profile.imageUrl.startsWith('data:') ? (
-                    // Handle data URLs (from browser file selection)
-                    <img 
-                      src={profile.imageUrl} 
-                      alt={profile.name}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    // Handle file paths
-                    <Image 
-                      src={profile.imageUrl} 
-                      alt={profile.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 300px"
-                    />
-                  )
+                  <Image 
+                    src={profile.imageUrl} 
+                    alt={profile.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 300px"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-blue-600">
                     <span className="text-3xl font-bold text-white">
@@ -251,16 +274,16 @@ export default function ProfileManagement() {
               </div>
               
               <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-                <h4 className="font-medium text-gray-900">Blog Posts</h4>
+                <h4 className="font-medium text-gray-900">Contact Page</h4>
                 <p className="mt-1 text-sm text-gray-500">
-                  Your name appears as the author on all blog posts.
+                  Your email, phone, and social media links.
                 </p>
               </div>
               
               <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-                <h4 className="font-medium text-gray-900">Contact Page</h4>
+                <h4 className="font-medium text-gray-900">Homepage</h4>
                 <p className="mt-1 text-sm text-gray-500">
-                  Your email and contact information for potential clients.
+                  Your name, title, and basic introduction.
                 </p>
               </div>
             </div>

@@ -1,72 +1,74 @@
 import { NextResponse } from 'next/server';
-import formidable from 'formidable';
 import { v2 as cloudinary } from 'cloudinary';
-import fs from 'fs';
 
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-// Disable the default body parser to handle form data
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// Helper function to parse form data
-const parseForm = async (req) => {
-  return new Promise((resolve, reject) => {
-    const form = formidable({
-      keepExtensions: true,
-      multiples: true,
-    });
-
-    form.parse(req, (err, fields, files) => {
-      if (err) reject(err);
-      resolve({ fields, files });
-    });
-  });
-};
 
 export async function POST(request) {
   try {
-    // Get the request object
-    const reqObj = await request.clone();
+    if (!process.env.CLOUDINARY_CLOUD_NAME || 
+        !process.env.CLOUDINARY_API_KEY || 
+        !process.env.CLOUDINARY_API_SECRET) {
+      return NextResponse.json(
+        { error: 'Cloudinary credentials are not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Get the form data from the request
+    const formData = await request.formData();
+    const file = formData.get('file');
     
-    // Parse the form data
-    const { fields, files } = await parseForm(reqObj);
+    if (!file) {
+      return NextResponse.json(
+        { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    // Convert the file to base64
+    const fileBuffer = await file.arrayBuffer();
+    const fileBase64 = Buffer.from(fileBuffer).toString('base64');
+    const fileDataUrl = `data:${file.type};base64,${fileBase64}`;
+
+    // Get the upload type (profile, project, blog, etc.)
+    const uploadType = formData.get('type') || 'general';
     
-    // Get the type from the fields (e.g., 'blog', 'profile', 'project')
-    const type = fields.type[0] || 'general';
-    
-    // Get the file from the files object
-    const file = files.file[0];
-    
-    // Upload the file to Cloudinary
-    const result = await cloudinary.uploader.upload(file.filepath, {
-      folder: `portfolio/${type}`,
+    // Configure upload options
+    const uploadOptions = {
+      folder: `portfolio/${uploadType}`,
       resource_type: 'auto',
+      overwrite: true,
+    };
+
+    // Upload to Cloudinary
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(
+        fileDataUrl,
+        uploadOptions,
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
     });
-    
-    // Remove the temporary file
-    fs.unlinkSync(file.filepath);
-    
-    // Return the Cloudinary URL and other details
+
+    // Return the upload result with image URL
     return NextResponse.json({
-      success: true,
       url: result.secure_url,
-      public_id: result.public_id,
-    }, { status: 200 });
-    
+      publicId: result.public_id,
+      width: result.width,
+      height: result.height,
+    });
   } catch (error) {
     console.error('Upload error:', error);
-    return NextResponse.json({
-      error: 'Failed to upload image',
-      details: error.message,
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Error uploading file to Cloudinary' },
+      { status: 500 }
+    );
   }
 } 

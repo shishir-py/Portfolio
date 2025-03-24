@@ -1,38 +1,64 @@
-import mongoose from 'mongoose';
+import { MongoClient } from 'mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+// Connection URI
+const uri = process.env.MONGODB_URI;
+const options = {};
 
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
-}
+let client;
+let clientPromise;
 
-/**
- * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents connections growing exponentially
- * during API Route usage.
- */
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
-
-async function dbConnect() {
-  if (cached.conn) {
-    return cached.conn;
+// Skip MongoDB connection if no URI is provided
+if (!uri) {
+  console.warn('MongoDB URI not found. Database features will not be available.');
+} else {
+  try {
+    // In development mode, use a global variable so that the value
+    // is preserved across module reloads caused by HMR (Hot Module Replacement)
+    if (process.env.NODE_ENV === 'development') {
+      if (!global._mongoClientPromise) {
+        client = new MongoClient(uri, options);
+        global._mongoClientPromise = client.connect().catch(err => {
+          console.error('Failed to connect to MongoDB:', err);
+          return null;
+        });
+      }
+      clientPromise = global._mongoClientPromise;
+    } else {
+      // In production mode, it's best to not use a global variable
+      client = new MongoClient(uri, options);
+      clientPromise = client.connect().catch(err => {
+        console.error('Failed to connect to MongoDB:', err);
+        return null;
+      });
+    }
+  } catch (error) {
+    console.error('Error initializing MongoDB connection:', error);
+    clientPromise = null;
   }
-
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
-
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
-  }
-  cached.conn = await cached.promise;
-  return cached.conn;
 }
 
-export default dbConnect; 
+// Helper function to connect to the database
+export async function connectToDatabase() {
+  if (!uri) {
+    return { db: null, client: null };
+  }
+  
+  try {
+    if (!clientPromise) {
+      return { db: null, client: null };
+    }
+    
+    const client = await clientPromise;
+    if (!client) {
+      return { db: null, client: null };
+    }
+    
+    const db = client.db(process.env.MONGODB_DB || 'portfolio');
+    return { client, db };
+  } catch (error) {
+    console.error('Error connecting to database:', error);
+    return { db: null, client: null };
+  }
+}
+
+export default clientPromise; 
