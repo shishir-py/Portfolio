@@ -33,7 +33,8 @@ export default function BlogPostForm({ post, onSubmit, onCancel }: BlogPostFormP
     date: post?.date || new Date().toISOString().split('T')[0],
     imageColor: post?.imageColor || 'bg-blue-700',
     readTime: post?.readTime || '5 min',
-    image: ''
+    image: '',
+    imageUrl: ''
   });
   
   const [previewImage, setPreviewImage] = useState<string | undefined>(undefined);
@@ -53,16 +54,38 @@ export default function BlogPostForm({ post, onSubmit, onCancel }: BlogPostFormP
     }
   };
   
-  const handleImageSelected = (file: File, previewUrl: string) => {
+  const handleImageSelected = async (file: File, previewUrl: string) => {
     setImageFile(file);
     setPreviewImage(previewUrl);
     
-    // Store the image as a data URL directly in the form data
-    // This way it can be saved to localStorage without needing server upload
-    setFormData(prev => ({ 
-      ...prev, 
-      image: previewUrl  // Use the data URL directly
-    }));
+    try {
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'blog');
+      
+      // Upload to Cloudinary through our API route
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+      
+      const data = await response.json();
+      
+      // Update the form data with the Cloudinary URL
+      setFormData(prev => ({ 
+        ...prev, 
+        imageUrl: data.url  // Use the Cloudinary URL
+      }));
+      
+      console.log('Image uploaded successfully:', data.url);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
   };
   
   const handleSubmit = (e: React.FormEvent) => {

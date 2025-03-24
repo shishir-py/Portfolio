@@ -4,46 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import BlogPostForm from '../../components/BlogPostForm';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
-// Mock data - in a real app, this would come from a database
-const initialPosts = [
-  {
-    id: 1,
-    title: 'Data Visualization Best Practices',
-    slug: 'data-visualization-best-practices',
-    excerpt: 'Learn how to create effective data visualizations that communicate insights clearly and efficiently.',
-    content: 'This is where the full content of the blog post would appear...',
-    author: 'Tara Pandey',
-    category: 'Data Visualization',
-    date: 'May 15, 2024',
-    imageColor: 'bg-blue-700',
-    readTime: '5 min'
-  },
-  {
-    id: 2,
-    title: 'Predictive Analytics in Retail',
-    slug: 'predictive-analytics-retail',
-    excerpt: 'Discover how machine learning models can predict customer behavior and optimize retail operations.',
-    content: 'This is where the full content of the blog post would appear...',
-    author: 'Tara Pandey',
-    category: 'Machine Learning',
-    date: 'April 22, 2024',
-    imageColor: 'bg-blue-600',
-    readTime: '7 min'
-  },
-  {
-    id: 3,
-    title: 'The Future of Data Science',
-    slug: 'future-of-data-science',
-    excerpt: 'Exploring emerging trends in data science and how they will shape business intelligence in the coming years.',
-    content: 'This is where the full content of the blog post would appear...',
-    author: 'Tara Pandey',
-    category: 'Trends',
-    date: 'March 10, 2024',
-    imageColor: 'bg-blue-500',
-    readTime: '6 min'
-  }
-];
+// Empty initial state - we'll load from the API
+const initialPosts = [];
 
 export default function BlogManagement() {
   const [posts, setPosts] = useState(initialPosts);
@@ -53,49 +17,42 @@ export default function BlogManagement() {
   const [postToDelete, setPostToDelete] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [postImages, setPostImages] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   
+  // Check authentication and load posts
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedPosts = localStorage.getItem('blog_posts');
-      if (savedPosts) {
-        setPosts(JSON.parse(savedPosts));
-      } else {
-        // Initialize with default posts if nothing in localStorage
-        localStorage.setItem('blog_posts', JSON.stringify(initialPosts));
-      }
-      
-      // Load blog images
-      const savedImages = localStorage.getItem('blog_images');
-      if (savedImages) {
-        try {
-          const parsedImages = JSON.parse(savedImages);
-          setPostImages(parsedImages);
-        } catch (error) {
-          console.error('Error parsing blog images from localStorage:', error);
-        }
-      }
-      
       const authStatus = localStorage.getItem('dashboard_auth');
       if (authStatus !== 'true') {
         router.push('/dashboard');
       } else {
         setIsAuthenticated(true);
+        fetchPosts();
       }
-      
-      setIsLoading(false);
     }
   }, [router]);
 
-  useEffect(() => {
-    // Save updated posts to localStorage when posts change
-    if (typeof window !== 'undefined' && posts) {
-      localStorage.setItem('blog_posts', JSON.stringify(posts));
+  // Fetch posts from API
+  const fetchPosts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/blog');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch blog posts');
+      }
+      
+      const data = await response.json();
+      setPosts(data);
+    } catch (error) {
+      console.error('Error fetching blog posts:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }, [posts]);
+  };
 
   const handleAddNew = () => {
     setCurrentPost(null);
@@ -112,191 +69,216 @@ export default function BlogManagement() {
     setIsDeleting(true);
   };
   
-  const confirmDelete = () => {
-    const updatedPosts = posts.filter(p => p.id !== postToDelete.id);
-    setPosts(updatedPosts);
-    setIsDeleting(false);
-    setPostToDelete(null);
-    
-    // Save updated posts to localStorage
-    localStorage.setItem('blog_posts', JSON.stringify(updatedPosts));
-    
-    // Show success message
-    setSuccessMessage('Blog post deleted successfully');
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-  };
-  
-  const handleFormSubmit = (postData) => {
-    let updatedPosts;
-    
-    if (postData.id) {
-      // Update existing post
-      updatedPosts = posts.map(p => p.id === postData.id ? postData : p);
-      setPosts(updatedPosts);
-    } else {
-      // Add new post
-      const newPost = {
-        ...postData,
-        id: Math.max(0, ...posts.map(p => p.id)) + 1
-      };
-      updatedPosts = [...posts, newPost];
-      setPosts(updatedPosts);
+  const confirmDelete = async () => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/blog/${postToDelete.slug}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete blog post');
+      }
+      
+      // Refresh the posts list
+      await fetchPosts();
+      
+      setIsDeleting(false);
+      setPostToDelete(null);
+      
+      // Show success message
+      setSuccessMessage('Blog post deleted successfully');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error deleting blog post:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    // Save updated posts to localStorage
-    localStorage.setItem('blog_posts', JSON.stringify(updatedPosts));
-    
-    setIsFormOpen(false);
-    
-    // Show success message
-    setSuccessMessage(postData.id ? 'Blog post updated successfully' : 'Blog post added successfully');
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
   };
   
-  const handleFormCancel = () => {
-    setIsFormOpen(false);
+  const handleFormSubmit = async (postData) => {
+    try {
+      setIsSubmitting(true);
+      let response;
+      
+      if (postData._id) {
+        // Update existing post
+        response = await fetch(`/api/blog/${postData.slug}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(postData),
+        });
+      } else {
+        // Add new post
+        response = await fetch('/api/blog', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(postData),
+        });
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to ${postData._id ? 'update' : 'create'} blog post`);
+      }
+      
+      // Refresh the posts list
+      await fetchPosts();
+      
+      setIsFormOpen(false);
+      
+      // Show success message
+      setSuccessMessage(`Blog post ${postData._id ? 'updated' : 'created'} successfully`);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error submitting blog post:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
-  if (isFormOpen) {
+  const handleCancel = () => {
+    setIsFormOpen(false);
+    setCurrentPost(null);
+  };
+  
+  if (!isAuthenticated || isLoading) {
     return (
-      <div className="py-6">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <BlogPostForm 
-            post={currentPost} 
-            onSubmit={handleFormSubmit} 
-            onCancel={handleFormCancel} 
-          />
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">Loading...</h2>
+          <p className="text-gray-500">Please wait while we load your blog posts.</p>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">Blog Posts</h1>
-          <button
-            onClick={handleAddNew}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
-            Add New Post
-          </button>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Blog Management</h1>
+            <p className="text-gray-600">Manage your blog posts</p>
+          </div>
+          <div className="flex space-x-3">
+            <Link href="/dashboard">
+              <button className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Back to Dashboard
+              </button>
+            </Link>
+            <button
+              onClick={handleAddNew}
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Add New Post
+            </button>
+          </div>
         </div>
         
-        <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
-          <ul className="divide-y divide-gray-200">
-            {posts.map((post) => (
-              <li key={post.id} className="p-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className={`w-16 h-16 ${post.imageColor} rounded overflow-hidden mr-4 flex-shrink-0 flex items-center justify-center`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-medium text-gray-900">{post.title}</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {post.excerpt.length > 100 
-                          ? `${post.excerpt.substring(0, 100)}...` 
-                          : post.excerpt}
-                      </p>
-                      <div className="mt-2 flex items-center text-sm text-gray-500">
-                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded mr-2">
-                          {post.category}
-                        </span>
-                        <span>{post.date} • {post.readTime}</span>
+        {showSuccess && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md text-green-800">
+            {successMessage}
+          </div>
+        )}
+        
+        {isFormOpen ? (
+          <BlogPostForm
+            post={currentPost}
+            onSubmit={handleFormSubmit}
+            onCancel={handleCancel}
+            isSubmitting={isSubmitting}
+          />
+        ) : (
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+            {posts.length === 0 ? (
+              <div className="p-6 text-center">
+                <p className="text-gray-500">No blog posts found. Click "Add New Post" to create one.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200">
+                {posts.map((post) => (
+                  <li key={post._id} className="p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start space-x-4">
+                        {post.imageUrl ? (
+                          <div className="flex-shrink-0 h-16 w-24 relative overflow-hidden rounded bg-gray-100">
+                            <Image
+                              src={post.imageUrl}
+                              alt={post.title}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className={`flex-shrink-0 h-16 w-24 rounded ${post.imageColor}`}></div>
+                        )}
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">{post.title}</h3>
+                          <p className="mt-1 text-sm text-gray-600 line-clamp-2">{post.excerpt}</p>
+                          <div className="mt-1 flex space-x-3 text-sm text-gray-500">
+                            <span>{post.category}</span>
+                            <span>•</span>
+                            <span>{post.date}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(post)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(post)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                        <Link href={`/blog/${post.slug}`} target="_blank">
+                          <button className="text-gray-600 hover:text-gray-800">
+                            View
+                          </button>
+                        </Link>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Link 
-                      href={`/blog/${post.slug}`}
-                      className="text-gray-400 hover:text-gray-500"
-                      target="_blank"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                        <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                      </svg>
-                    </Link>
-                    <button
-                      onClick={() => handleEdit(post)}
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(post)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
       
-      {/* Delete Confirmation Modal */}
+      {/* Delete confirmation modal */}
       {isDeleting && (
-        <div className="fixed z-10 inset-0 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Delete Blog Post
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        Are you sure you want to delete "{postToDelete?.title}"? This action cannot be undone.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={confirmDelete}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsDeleting(false);
-                    setPostToDelete(null);
-                  }}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Blog Post</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete "{postToDelete.title}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setIsDeleting(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Deleting...' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>

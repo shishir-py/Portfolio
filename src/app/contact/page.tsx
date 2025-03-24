@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import emailjs from 'emailjs-com';
 
 export default function Contact() {
   const [formState, setFormState] = useState({
@@ -16,6 +17,9 @@ export default function Contact() {
     email: 'sheahead22@gmail.com',
     phone: '+1 (555) 123-4567',
     linkedin: 'https://www.linkedin.com/in/Brainwave1999'
+  });
+  const [errors, setErrors] = useState({
+    email: ''
   });
 
   // Load profile data from localStorage if available
@@ -33,27 +37,58 @@ export default function Contact() {
     }
   }, []);
 
+  const validateEmail = (email: string) => {
+    const regex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return regex.test(email.toLowerCase());
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormState(prev => ({
       ...prev,
       [name]: value
     }));
+
+    // Clear errors when user types
+    if (name === 'email' && errors.email) {
+      setErrors(prev => ({ ...prev, email: '' }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate email
+    if (!validateEmail(formState.email)) {
+      setErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
+      return;
+    }
+
     setIsSubmitting(true);
     setIsSuccess(false);
     setIsError(false);
 
     try {
-      // In a real application, you would send this data to your backend
-      // This is a simulation of an API call
+      // EmailJS configuration - you need to replace these with your actual EmailJS service IDs
+      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
+      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID';
+      const userId = process.env.NEXT_PUBLIC_EMAILJS_USER_ID || 'YOUR_USER_ID';
+      
+      // Prepare template parameters
+      const templateParams = {
+        from_name: formState.name,
+        from_email: formState.email,
+        to_email: contactInfo.email,
+        subject: formState.subject,
+        message: formState.message
+      };
+
+      // Log the email attempt for debugging
       console.log('Sending email to:', contactInfo.email);
       console.log('Form data:', formState);
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Send email using EmailJS
+      await emailjs.send(serviceId, templateId, templateParams, userId);
       
       // Reset form
       setFormState({
@@ -65,6 +100,7 @@ export default function Contact() {
       
       setIsSuccess(true);
     } catch (error) {
+      console.error('Email sending error:', error);
       setIsError(true);
     } finally {
       setIsSubmitting(false);
@@ -172,9 +208,12 @@ export default function Contact() {
                       required
                       value={formState.email}
                       onChange={handleChange}
-                      className="py-3 px-4 block w-full shadow-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-md bg-white text-gray-900"
+                      className={`py-3 px-4 block w-full shadow-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-md bg-white text-gray-900 ${errors.email ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}`}
                       placeholder="Your email address"
                     />
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    )}
                   </div>
                 </div>
                 
