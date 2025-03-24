@@ -29,10 +29,12 @@ const BlogPostSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Please provide a category'],
+    default: 'General',
   },
   date: {
     type: String,
     required: [true, 'Please provide a date'],
+    default: new Date().toISOString(),
   },
   imageUrl: {
     type: String,
@@ -45,6 +47,22 @@ const BlogPostSchema = new mongoose.Schema({
     type: String,
     default: '5 min',
   },
+  tags: {
+    type: [String],
+    default: [],
+  },
+  featured: {
+    type: Boolean,
+    default: false,
+  },
+  published: {
+    type: Boolean,
+    default: false,
+  },
+  addToHome: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -55,5 +73,5 @@ const BlogPostSchema = new mongoose.Schema({
   },
 });
 
-// Create and export the model
-export default mongoose.models.BlogPost || mongoose.model('BlogPost', BlogPostSchema); 
+// Create and export the model with explicit collection name
+export default mongoose.models.BlogPost || mongoose.model('BlogPost', BlogPostSchema, 'blogposts'); 

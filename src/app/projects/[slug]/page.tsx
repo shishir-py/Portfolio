@@ -25,54 +25,29 @@ export default function ProjectDetail() {
     
     if (!slug) return;
     
-    // Load projects from localStorage
-    if (typeof window !== 'undefined') {
-      const savedProjects = localStorage.getItem('projects_data');
-      let projectsArray = [];
-      
-      if (savedProjects) {
-        projectsArray = JSON.parse(savedProjects);
-      } else {
-        // Fallback to initial projects if none in localStorage
-        projectsArray = [
-          {
-            id: 1,
-            title: 'Sales Forecasting Model',
-            description: 'Developed an ARIMA time series model that improved sales forecasting accuracy by 27%, enabling better inventory management.',
-            imageUrl: '/images/projects/sales-forecast.jpg',
-            tags: ['Python', 'Pandas', 'Scikit-learn', 'Matplotlib', 'MongoDB'],
-            slug: 'sales-forecasting-model',
-            details: 'This sales forecasting model was developed using ARIMA (AutoRegressive Integrated Moving Average) time series analysis to predict future sales based on historical data. The model achieved a 27% improvement in forecasting accuracy compared to previous methods.\n\nKey Features:\n- Data cleaning and preprocessing pipeline\n- Seasonal decomposition of time series data\n- Parameter optimization for ARIMA model\n- Visualization of forecasts vs. actual sales\n- Integration with inventory management systems'
-          },
-          {
-            id: 2,
-            title: 'Customer Segmentation',
-            description: 'Applied K-means clustering to segment customers based on purchasing behavior, resulting in a 15% increase in marketing campaign effectiveness.',
-            imageUrl: '/images/projects/customer-segmentation.jpg',
-            tags: ['Python', 'NumPy', 'Pandas', 'Scikit-learn', 'Seaborn'],
-            slug: 'customer-segmentation',
-            details: 'This customer segmentation project used K-means clustering to group customers based on their purchasing behavior, demographics, and engagement metrics. The resulting segments were used to tailor marketing campaigns, resulting in a 15% increase in effectiveness.\n\nKey Features:\n- Data preprocessing and feature engineering\n- Principal Component Analysis for dimensionality reduction\n- K-means clustering with optimal k selection\n- Segment profiling and visualization\n- Integration with marketing automation tools'
-          },
-          {
-            id: 3,
-            title: 'Financial Dashboard',
-            description: 'Created an interactive Power BI dashboard to visualize key financial metrics, enabling executives to make data-driven decisions quickly.',
-            imageUrl: '/images/projects/financial-dashboard.jpg',
-            tags: ['Power BI', 'SQL', 'DAX', 'Financial Analysis'],
-            slug: 'financial-dashboard',
-            details: 'This interactive financial dashboard was developed in Power BI to provide executives with real-time access to key financial metrics. The dashboard includes visualizations for revenue, expenses, profit margins, and cash flow, with drill-down capabilities for deeper analysis.\n\nKey Features:\n- ETL processes for data integration\n- Custom DAX measures for complex calculations\n- Interactive filters and slicers\n- Automated refresh scheduling\n- Mobile-optimized views for on-the-go access'
+    const fetchProject = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/projects/slug/${slug}`);
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setProject(null);
           }
-        ];
+          throw new Error('Failed to fetch project');
+        }
+        
+        const data = await response.json();
+        setProject(data);
+      } catch (error) {
+        console.error('Error fetching project:', error);
+        setProject(null);
+      } finally {
+        setIsLoading(false);
       }
-      
-      const currentProject = projectsArray.find(p => p.slug === slug);
-      
-      if (currentProject) {
-        setProject(currentProject);
-      }
-      
-      setIsLoading(false);
-    }
+    };
+    
+    fetchProject();
   }, [slug]);
 
   // Show 404 if project not found
@@ -105,10 +80,12 @@ export default function ProjectDetail() {
           {/* Project Hero Image */}
           <div className="relative h-64 sm:h-96 w-full">
             {project.imageUrl ? (
-              <img 
+              <Image 
                 src={project.imageUrl}
                 alt={project.title}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 1200px"
               />
             ) : (
               <div className="h-full w-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center">
@@ -145,9 +122,9 @@ export default function ProjectDetail() {
               <p className="text-gray-700 mb-6">{project.description}</p>
               
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Project Details</h2>
-              {project.details ? (
+              {project.details || project.detailedDescription ? (
                 <div>
-                  {project.details.split('\n').map((paragraph, index) => (
+                  {(project.details || project.detailedDescription).split('\n').map((paragraph, index) => (
                     paragraph ? <p key={index} className="mb-4 text-gray-700">{paragraph}</p> : <br key={index} />
                   ))}
                 </div>
@@ -155,6 +132,36 @@ export default function ProjectDetail() {
                 <p className="text-gray-700">Detailed information about this project is coming soon!</p>
               )}
             </div>
+
+            {/* Demo and GitHub links if available */}
+            {(project.demoUrl || project.githubUrl) && (
+              <div className="mt-8 flex flex-wrap gap-4">
+                {project.demoUrl && (
+                  <a
+                    href={project.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    View Live Demo
+                  </a>
+                )}
+                
+                {project.githubUrl && (
+                  <a
+                    href={project.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                    </svg>
+                    View on GitHub
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

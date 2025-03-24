@@ -40,6 +40,7 @@ function serializeDocument(doc) {
 export async function GET(request, { params }) {
   try {
     const { slug } = params;
+    
     await dbConnect();
     
     const post = await BlogPost.findOne({ slug });
@@ -51,52 +52,7 @@ export async function GET(request, { params }) {
     // Serialize MongoDB document before sending response
     return NextResponse.json(serializeDocument(post), { status: 200 });
   } catch (error) {
+    console.error('Error fetching blog post by slug:', error);
     return NextResponse.json({ error: 'Failed to fetch blog post' }, { status: 500 });
-  }
-}
-
-// PUT handler to update a blog post
-export async function PUT(request, { params }) {
-  try {
-    const { slug } = params;
-    const body = await request.json();
-    
-    await dbConnect();
-    
-    // Set the updated time
-    body.updatedAt = new Date();
-    
-    const updatedPost = await BlogPost.findOneAndUpdate(
-      { slug },
-      body,
-      { new: true, runValidators: true }
-    );
-    
-    if (!updatedPost) {
-      return NextResponse.json({ error: 'Blog post not found' }, { status: 404 });
-    }
-    
-    // Serialize MongoDB document before sending response
-    return NextResponse.json(serializeDocument(updatedPost), { status: 200 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update blog post' }, { status: 500 });
-  }
-}
-
-// DELETE handler to delete a blog post
-export async function DELETE(request, { params }) {
-  try {
-    const { slug } = params;
-    await dbConnect();
-    
-    const deletedPost = await BlogPost.findOneAndDelete({ slug });
-    
-    if (!deletedPost) {
-      return NextResponse.json({ error: 'Blog post not found' }, { status: 404 });
-    }
-    
-    return NextResponse.json({ message: 'Blog post deleted successfully' }, { status: 200 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete blog post' }, { status: 500 });
   }
 } 

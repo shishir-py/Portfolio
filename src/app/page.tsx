@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { connectToDatabase } from '../lib/mongodb';
+import dbConnect from '../lib/mongodb';
+import mongoose from 'mongoose';
 import { Metadata } from 'next';
 
 // Default profile data as fallback
@@ -10,68 +11,6 @@ const defaultProfile = {
   bio: 'Results-driven Data Analyst specializing in automation, machine learning models, and data visualization with advanced skills in Python, SQL, and Power BI.',
   imageUrl: '/images/profile/admin-profile.jpg'
 };
-
-// Default projects as fallback
-const defaultProjects = [
-  {
-    _id: 'project1',
-    title: 'Sales Forecasting Model',
-    slug: 'sales-forecasting-model',
-    excerpt: 'Developed a machine learning model to forecast sales with 95% accuracy using historical data and seasonality patterns.',
-    image: '/images/projects/sales-forecast.jpg',
-  },
-  {
-    _id: 'project2',
-    title: 'Customer Segmentation Analysis',
-    slug: 'customer-segmentation',
-    excerpt: 'Created customer segments using clustering algorithms to improve targeted marketing campaigns.',
-    image: '/images/projects/customer-segmentation.jpg',
-  },
-  {
-    _id: 'project3',
-    title: 'Automated Reporting Dashboard',
-    slug: 'automated-reporting',
-    excerpt: 'Built an automated reporting system that reduced manual reporting time by 85% using Python and Power BI.',
-    image: '/images/projects/financial-dashboard.jpg',
-  }
-];
-
-// Default blog posts as fallback
-const defaultBlogPosts = [
-  {
-    _id: 'post1',
-    title: 'Introduction to Data Analytics',
-    slug: 'intro-to-data-analytics',
-    excerpt: 'Learn the fundamentals of data analytics and why it matters for business decision making.',
-    author: 'Tara Pandey',
-    category: 'Data Analytics',
-    date: new Date().toISOString(),
-    readTime: '5 min',
-    imageColor: '#4F46E5',
-  },
-  {
-    _id: 'post2',
-    title: 'Machine Learning for Beginners',
-    slug: 'machine-learning-beginners',
-    excerpt: 'A beginner-friendly guide to understanding machine learning models and their applications.',
-    author: 'Tara Pandey',
-    category: 'Machine Learning',
-    date: new Date().toISOString(),
-    readTime: '7 min',
-    imageColor: '#2563EB',
-  },
-  {
-    _id: 'post3',
-    title: 'Advanced SQL Techniques',
-    slug: 'advanced-sql-techniques',
-    excerpt: 'Master advanced SQL queries and database optimization for data analysis.',
-    author: 'Tara Pandey',
-    category: 'SQL',
-    date: new Date().toISOString(),
-    readTime: '6 min',
-    imageColor: '#0891B2',
-  }
-];
 
 // Helper function to serialize MongoDB documents
 function serializeDocument(doc: any) {
@@ -102,14 +41,8 @@ function serializeDocument(doc: any) {
 // Fetch profile data
 async function getProfileData() {
   try {
-    const { db } = await connectToDatabase();
-    
-    if (!db) {
-      return defaultProfile;
-    }
-    
-    const profile = await db.collection('profile').findOne({});
-    // Serialize MongoDB document
+    await dbConnect();
+    const profile = await mongoose.connection.collection('profile').findOne({});
     return profile ? serializeDocument(profile) : defaultProfile;
   } catch (error) {
     console.error('Error fetching profile:', error);
@@ -120,54 +53,72 @@ async function getProfileData() {
 // Fetch featured projects
 async function getFeaturedProjects() {
   try {
-    const { db } = await connectToDatabase();
+    await dbConnect();
     
-    if (!db) {
-      return defaultProjects;
+    // Check if collection exists and has documents
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const projectsCollectionExists = collections.some(c => c.name === 'projects');
+    
+    if (!projectsCollectionExists) {
+      console.log('Projects collection does not exist yet, returning empty array');
+      return [];
     }
     
-    const projects = await db.collection('projects')
-      .find({ featured: true })
+    const projects = await mongoose.connection.collection('projects')
+      .find({ 
+        $or: [
+          { featured: true },
+          { addToHome: true }
+        ],
+        published: true // Only show published projects
+      })
       .sort({ createdAt: -1 })
       .limit(3)
       .toArray();
     
-    // Serialize MongoDB documents
-    const serializedProjects = projects.length > 0 
-      ? projects.map(project => serializeDocument(project))
-      : defaultProjects;
+    console.log('Found projects for homepage:', projects.length);
     
-    return serializedProjects;
+    // Return empty array if no featured projects
+    return projects.length > 0 ? projects.map(project => serializeDocument(project)) : [];
   } catch (error) {
     console.error('Error fetching featured projects:', error);
-    return defaultProjects;
+    return [];
   }
 }
 
 // Fetch latest blog posts
 async function getLatestBlogPosts() {
   try {
-    const { db } = await connectToDatabase();
+    await dbConnect();
     
-    if (!db) {
-      return defaultBlogPosts;
+    // Check if collection exists and has documents
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const blogsCollectionExists = collections.some(c => c.name === 'blogposts');
+    
+    if (!blogsCollectionExists) {
+      console.log('Blogs collection does not exist yet, returning empty array');
+      return [];
     }
     
-    const posts = await db.collection('blog')
-      .find({})
-      .sort({ date: -1 })
+    const posts = await mongoose.connection.collection('blogposts')
+      .find({ 
+        $or: [
+          { featured: true },
+          { addToHome: true }
+        ],
+        published: true 
+      })
+      .sort({ createdAt: -1 })
       .limit(3)
       .toArray();
     
-    // Serialize MongoDB documents
-    const serializedPosts = posts.length > 0 
-      ? posts.map(post => serializeDocument(post))
-      : defaultBlogPosts;
+    console.log('Found blogs for homepage:', posts.length);
     
-    return serializedPosts;
+    // Return empty array if no featured posts
+    return posts.length > 0 ? posts.map(post => serializeDocument(post)) : [];
   } catch (error) {
     console.error('Error fetching blog posts:', error);
-    return defaultBlogPosts;
+    return [];
   }
 }
 
@@ -216,14 +167,14 @@ export default async function Home() {
             <div className="mt-10 md:mt-0 md:flex-shrink-0">
               <div className="relative h-64 w-64 mx-auto rounded-full overflow-hidden shadow-xl border-4 border-white md:h-80 md:w-80">
                 {profile.imageUrl ? (
-        <Image
+                  <Image
                     src={profile.imageUrl} 
                     alt={profile.name} 
                     fill 
                     sizes="(max-width: 768px) 100vw, 300px"
                     className="object-cover"
-          priority
-        />
+                    priority
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-blue-600">
                     <span className="text-4xl font-bold text-white">
@@ -238,161 +189,175 @@ export default async function Home() {
       </section>
 
       {/* Featured Projects section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Featured Projects
-            </h2>
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-600 sm:mt-4">
-              Check out some of my recent data analytics and machine learning projects
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {featuredProjects.map((project) => (
-              <div key={project._id} className="flex flex-col overflow-hidden rounded-lg shadow-lg">
-                <div className="flex-shrink-0 relative h-48">
-                  {project.image ? (
-            <Image
-                      src={project.image} 
-                      alt={project.title} 
-                      fill 
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 384px"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-                      <span className="text-xl font-bold text-white">{project.title}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 bg-white p-6 flex flex-col justify-between">
-                  <div className="flex-1">
-                    <Link href={`/projects/${project.slug}`} className="block mt-2">
-                      <p className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
-                        {project.title}
-                      </p>
-                      <p className="mt-3 text-base text-gray-600">
-                        {project.excerpt}
-                      </p>
-                    </Link>
-                  </div>
-                  <div className="mt-4">
-                    <Link 
-                      href={`/projects/${project.slug}`} 
-                      className="text-base font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      View Project →
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-10 text-center">
-            <Link 
-              href="/projects" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              View All Projects
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Latest Blog Posts section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Latest Blog Posts
-            </h2>
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-600 sm:mt-4">
-              Insights, tutorials and thoughts on data analysis
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {latestPosts.map((post) => (
-              <div key={post._id} className="flex flex-col overflow-hidden rounded-lg shadow-lg">
-                <div className="flex-shrink-0 relative h-48">
-                  {post.image ? (
-          <Image
-                      src={post.image} 
-                      alt={post.title} 
-                      fill 
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 384px"
-                    />
-                  ) : post.imageColor ? (
-                    <div className="w-full h-full" style={{ backgroundColor: post.imageColor }}>
-                      <div className="flex items-center justify-center h-full">
-                        <span className="text-xl font-bold text-white">{post.title}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-                      <span className="text-xl font-bold text-white">{post.title}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 bg-white p-6 flex flex-col justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-600">
-                      {post.category || 'Data Analysis'}
-                    </p>
-                    <Link href={`/blog/${post.slug}`} className="block mt-2">
-                      <p className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
-                        {post.title}
-                      </p>
-                      <p className="mt-3 text-base text-gray-600">
-                        {post.excerpt}
-                      </p>
-                    </Link>
-                  </div>
-                  <div className="mt-6 flex items-center">
-                    <div className="flex-shrink-0">
-                      <span className="sr-only">{post.author}</span>
-                      <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
-                        <span className="text-xs font-medium text-white">
-                          {post.author ? post.author.split(' ').map(n => n[0]).join('') : 'AP'}
+      {featuredProjects.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                Featured Projects
+              </h2>
+              <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+                Check out some of my recent work
+              </p>
+            </div>
+            
+            <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {featuredProjects.map((project) => (
+                <div key={project._id} className="flex flex-col rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105 duration-300">
+                  <div className="flex-shrink-0 h-48 relative">
+                    {project.imageUrl ? (
+                      <Image 
+                        src={project.imageUrl} 
+                        alt={project.title} 
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className={`h-full w-full ${project.imageColor || 'bg-blue-700'} flex items-center justify-center`}>
+                        <span className="text-2xl font-bold text-white">
+                          {project.title.charAt(0)}
                         </span>
                       </div>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">
-                        {post.author || profile.name}
-                      </p>
-                      <div className="flex space-x-1 text-sm text-gray-500">
-                        <time dateTime={post.date}>
-                          {new Date(post.date).toLocaleDateString('en-US', {
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </time>
-                        <span aria-hidden="true">&middot;</span>
-                        <span>{post.readTime || '5 min'} read</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 bg-white p-6 flex flex-col justify-between">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {project.tags && project.tags.slice(0, 3).map((tag) => (
+                          <span key={tag} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
+                      
+                      <Link href={`/projects/${project.slug}`}>
+                        <h3 className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                          {project.title}
+                        </h3>
+                      </Link>
+                      
+                      <p className="mt-3 text-base text-gray-500">
+                        {project.description}
+                      </p>
+                    </div>
+                    
+                    <div className="mt-6 flex items-center justify-between">
+                      <Link 
+                        href={`/projects/${project.slug}`} 
+                        className="text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        View Project →
+                      </Link>
+                      
+                      {project.demoUrl && (
+                        <a 
+                          href={project.demoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-4 text-sm text-gray-600 hover:text-gray-900"
+                        >
+                          Live Demo
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            
+            <div className="mt-12 text-center">
+              <Link 
+                href="/projects"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                View All Projects
+              </Link>
+            </div>
           </div>
-          
-          <div className="mt-10 text-center">
-            <Link 
-              href="/blog" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              View All Posts
-            </Link>
+        </section>
+      )}
+
+      {/* Latest Blog Posts section */}
+      {latestPosts.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                Latest Blog Posts
+              </h2>
+              <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-500">
+                Insights and thoughts on data analytics
+              </p>
+            </div>
+            
+            <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {latestPosts.map((post) => (
+                <article key={post._id} className="flex flex-col rounded-lg shadow-lg overflow-hidden">
+                  <div className="flex-shrink-0 h-48 relative">
+                    {post.imageUrl ? (
+                      <Image
+                        src={post.imageUrl}
+                        alt={post.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className={`${post.imageColor || 'bg-indigo-700'} h-48 w-full flex items-center justify-center text-white text-2xl font-bold`}>
+                        {post.title.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 bg-white p-6 flex flex-col justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center text-sm text-gray-500 mb-2">
+                        <span>{post.category || 'Data Analysis'}</span>
+                        <span className="mx-1">•</span>
+                        <span>{new Date(post.publishedAt || post.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}</span>
+                      </div>
+                      
+                      <Link href={`/blog/${post.slug}`}>
+                        <h3 className="text-xl font-semibold text-gray-900 hover:text-indigo-600 transition-colors">
+                          {post.title}
+                        </h3>
+                      </Link>
+                      
+                      <p className="mt-3 text-base text-gray-500">
+                        {post.excerpt}
+                      </p>
+                    </div>
+                    
+                    <div className="mt-6">
+                      <Link
+                        href={`/blog/${post.slug}`}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium"
+                      >
+                        Read more →
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+            
+            <div className="mt-12 text-center">
+              <Link 
+                href="/blog"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Read All Posts
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Contact CTA section */}
       <section className="bg-blue-700 py-16">

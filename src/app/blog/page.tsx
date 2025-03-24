@@ -6,162 +6,163 @@ import { useState, useEffect } from 'react';
 
 export default function Blog() {
   const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   
-  // Default posts if none are found in localStorage
-  const defaultPosts = [
-    {
-      id: 1,
-      title: 'Data Visualization Best Practices',
-      slug: 'data-visualization-best-practices',
-      excerpt: 'Learn how to create effective data visualizations that communicate insights clearly and efficiently.',
-      author: 'Tara Pandey',
-      category: 'Data Visualization',
-      date: 'May 15, 2024',
-      image: '/images/blog/data-visualization.jpg',
-      readTime: '5 min'
-    },
-    {
-      id: 2,
-      title: 'Predictive Analytics in Retail',
-      slug: 'predictive-analytics-retail',
-      excerpt: 'Discover how machine learning models can predict customer behavior and optimize retail operations.',
-      author: 'Tara Pandey',
-      category: 'Machine Learning',
-      date: 'April 22, 2024',
-      image: '/images/blog/predictive-analytics.jpg',
-      readTime: '7 min'
-    },
-    {
-      id: 3,
-      title: 'The Future of Data Science',
-      slug: 'future-of-data-science',
-      excerpt: 'Exploring emerging trends in data science and how they will shape business intelligence in the coming years.',
-      author: 'Tara Pandey',
-      category: 'Trends',
-      date: 'March 10, 2024',
-      image: '/images/blog/future-data-science.jpg',
-      readTime: '6 min'
-    },
-    {
-      id: 4,
-      title: 'Introduction to Time Series Analysis',
-      slug: 'time-series-analysis-intro',
-      excerpt: 'A beginner-friendly guide to understanding and implementing time series analysis in Python.',
-      author: 'John Doe',
-      category: 'Tutorial',
-      date: 'Dec 10, 2022',
-      image: '/images/blog/future-data-science.jpg',
-      imageColor: 'from-purple-400 to-pink-500',
-      readTime: '10 min read'
-    },
-    {
-      id: 5,
-      title: 'Building Interactive Dashboards with Tableau',
-      slug: 'interactive-dashboards-tableau',
-      excerpt: 'Step-by-step guide to creating interactive and insightful dashboards using Tableau.',
-      author: 'John Doe',
-      category: 'Tutorial',
-      date: 'Nov 5, 2022',
-      image: '/images/blog/predictive-analytics.jpg',
-      imageColor: 'from-blue-400 to-cyan-500',
-      readTime: '7 min read'
-    },
-    {
-      id: 6,
-      title: 'SQL for Data Analysts: Beyond the Basics',
-      slug: 'sql-for-data-analysts',
-      excerpt: 'Advanced SQL techniques that every data analyst should know to level up their data querying skills.',
-      author: 'John Doe',
-      category: 'Tutorial',
-      date: 'Oct 22, 2022',
-      image: '/images/blog/data-visualization.jpg',
-      imageColor: 'from-emerald-500 to-teal-600',
-      readTime: '9 min read'
-    }
-  ];
-
-  // Load posts from localStorage or use default
+  // Fetch posts from the API
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedPosts = localStorage.getItem('blog_posts');
-      if (savedPosts) {
-        setPosts(JSON.parse(savedPosts));
-      } else {
-        // No saved posts found, save the default ones
-        localStorage.setItem('blog_posts', JSON.stringify(defaultPosts));
-        setPosts(defaultPosts);
+    const fetchPosts = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/blog');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch blog posts');
+        }
+        
+        const data = await response.json();
+        // Filter to only show published posts
+        const publishedPosts = data.filter(post => post.published === true);
+        setPosts(publishedPosts);
+      } catch (error) {
+        console.error('Error fetching blog posts:', error);
+        setError('Failed to load blog posts. Please try again later.');
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+    
+    fetchPosts();
   }, []);
+
+  // Function to format date more nicely if needed
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8">
+            <p className="text-red-700">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (posts.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl mb-8">
+            Blog
+          </h1>
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg p-8 text-center">
+            <p className="text-gray-500">No blog posts available at the moment. Check back soon!</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-100 min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl">
-            <span className="text-blue-600">Blog</span> & Insights
+            Blog
           </h1>
-          <p className="mt-4 text-lg text-gray-600 max-w-3xl mx-auto">
-            Thoughts, insights, and perspectives on data analysis, machine learning, and automation.
+          <p className="mt-4 max-w-3xl mx-auto text-xl text-gray-500">
+            Insights and articles about data analysis, machine learning, and more.
           </p>
         </div>
-
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-3">
-          {posts.map(post => (
-            <div key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:scale-105 duration-300">
-              <div className="h-48 relative">
-                {post.image ? (
-                  <Image 
-                    src={post.image} 
+        
+        <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post) => (
+            <article key={post._id} className="flex flex-col rounded-lg shadow-lg overflow-hidden">
+              <div className="flex-shrink-0 h-48 relative">
+                {post.imageUrl ? (
+                  <Image
+                    src={post.imageUrl}
                     alt={post.title}
                     fill
-                    className="object-cover"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement.className = `${post.imageColor || 'bg-blue-700'} h-48 flex items-center justify-center`;
+                    }}
                   />
                 ) : (
-                  <div className={`h-full w-full bg-gradient-to-r ${post.imageColor || 'from-blue-400 to-blue-600'} flex items-center justify-center`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                    </svg>
+                  <div className={`${post.imageColor || 'bg-blue-700'} h-48 w-full flex items-center justify-center text-white text-2xl font-bold`}>
+                    {post.title.charAt(0)}
                   </div>
                 )}
               </div>
               
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-blue-600">{post.category}</span>
-                  <span className="text-xs text-gray-500">{post.date}</span>
-                </div>
-                
-                <h2 className="text-xl font-bold text-gray-900 mb-3 h-14 line-clamp-2">
-                  {post.title}
-                </h2>
-                
-                <p className="text-gray-600 mb-5 h-20 line-clamp-3">
-                  {post.excerpt}
-                </p>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">
-                        {post.author.split(' ').map(n => n[0]).join('')}
-                      </span>
-                    </div>
-                    <span className="ml-2 text-sm text-gray-700">{post.author}</span>
+              <div className="flex-1 bg-white p-6 flex flex-col justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center text-sm text-gray-500 mb-2">
+                    <span>{post.category}</span>
+                    <span className="mx-1">•</span>
+                    <span>{formatDate(post.date)}</span>
+                    <span className="mx-1">•</span>
+                    <span>{post.readTime}</span>
                   </div>
-                  
-                  <span className="text-xs text-gray-500">{post.readTime}</span>
+                  <Link href={`/blog/${post.slug}`} className="block">
+                    <h2 className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">{post.title}</h2>
+                  </Link>
+                  <p className="mt-3 text-base text-gray-500">{post.excerpt}</p>
                 </div>
                 
-                <Link 
-                  href={`/blog/${post.slug}`} 
-                  className="mt-4 inline-block px-6 py-2 border border-blue-600 text-blue-600 font-medium text-sm leading-tight rounded hover:bg-blue-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors w-full text-center"
-                >
-                  Read More
-                </Link>
+                <div className="mt-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 overflow-hidden">
+                      <div className="h-full w-full bg-blue-600 flex items-center justify-center text-white">
+                        {post.author ? post.author.charAt(0) : 'A'}
+                      </div>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">
+                        {post.author || 'Anonymous'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <Link
+                    href={`/blog/${post.slug}`}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Read more →
+                  </Link>
+                </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </div>

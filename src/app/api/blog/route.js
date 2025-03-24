@@ -64,4 +64,35 @@ export async function POST(request) {
     console.error('Error creating blog post:', error);
     return NextResponse.json({ error: 'Failed to create blog post' }, { status: 500 });
   }
+}
+
+// PUT handler to update an existing blog post
+export async function PUT(request) {
+  try {
+    const body = await request.json();
+    const { _id, ...updateData } = body;
+    
+    if (!_id) {
+      return NextResponse.json({ error: 'Blog post ID is required' }, { status: 400 });
+    }
+    
+    await dbConnect();
+    
+    // Find blog post by ID and update it
+    const updatedPost = await BlogPost.findByIdAndUpdate(
+      _id,
+      { ...updateData, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedPost) {
+      return NextResponse.json({ error: 'Blog post not found' }, { status: 404 });
+    }
+    
+    // Serialize MongoDB document before sending response
+    return NextResponse.json(serializeDocument(updatedPost), { status: 200 });
+  } catch (error) {
+    console.error('Error updating blog post:', error);
+    return NextResponse.json({ error: 'Failed to update blog post' }, { status: 500 });
+  }
 } 

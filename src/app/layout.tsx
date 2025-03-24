@@ -3,7 +3,9 @@ import { Montserrat } from 'next/font/google';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import { Metadata } from 'next';
-import { connectToDatabase } from '../lib/mongodb';
+import dbConnect from '../lib/mongodb';
+import mongoose from 'mongoose';
+import { Toaster } from 'react-hot-toast';
 
 const montserrat = Montserrat({ 
   subsets: ['latin'],
@@ -54,19 +56,9 @@ function serializeDocument(doc: any) {
 // Fetch profile data for metadata
 async function getProfileData() {
   try {
-    // Server component can directly connect to database
-    const { db } = await connectToDatabase();
-    
-    if (!db) {
-      console.warn('Database connection not available, using default profile');
-      return defaultProfile;
-    }
-    
-    const profile = await db.collection('profile').findOne({});
-    
-    // Serialize the MongoDB document to plain JavaScript object
-    const serializedProfile = profile ? serializeDocument(profile) : defaultProfile;
-    return serializedProfile;
+    await dbConnect();
+    const profile = await mongoose.connection.collection('profile').findOne({});
+    return profile ? serializeDocument(profile) : defaultProfile;
   } catch (error) {
     console.error('Error fetching profile data:', error);
     return defaultProfile;
@@ -105,6 +97,30 @@ export default async function RootLayout({
         <Header profile={profile} />
         <main className="flex-grow">{children}</main>
         <Footer profile={profile} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#22c55e',
+                color: '#fff', 
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#ef4444',
+                color: '#fff',
+              },
+            },
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

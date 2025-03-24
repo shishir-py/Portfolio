@@ -5,6 +5,22 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
+// Define types for analytics data
+interface DashboardStats {
+  totalProjects: number;
+  totalBlogPosts: number;
+  totalFeatured: number;
+  totalPublished: number;
+  recentPublished: RecentItem[];
+}
+
+interface RecentItem {
+  _id: string;
+  title: string;
+  type: 'project' | 'blog';
+  date: string;
+}
+
 export default function Dashboard() {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -12,6 +28,15 @@ export default function Dashboard() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Dashboard analytics state
+  const [stats, setStats] = useState<DashboardStats>({
+    totalProjects: 0,
+    totalBlogPosts: 0,
+    totalFeatured: 0,
+    totalPublished: 0,
+    recentPublished: []
+  });
 
   const router = useRouter();
 
@@ -21,9 +46,53 @@ export default function Dashboard() {
     const auth = localStorage.getItem('dashboard_auth');
     if (auth === 'true') {
       setIsAuthenticated(true);
+      fetchDashboardStats();
     }
     setIsLoading(false);
   }, []);
+
+  // Fetch dashboard stats
+  const fetchDashboardStats = async () => {
+    try {
+      // Fetch projects
+      const projectsRes = await fetch('/api/projects');
+      const projects = await projectsRes.json();
+      
+      // Fetch blog posts
+      const blogRes = await fetch('/api/blog');
+      const blogs = await blogRes.json();
+      
+      // Calculate stats
+      const featuredCount = projects.filter((p: any) => p.featured).length + blogs.filter((b: any) => b.featured).length;
+      const publishedCount = projects.filter((p: any) => p.published).length + blogs.filter((b: any) => b.published).length;
+      
+      // Get recent published items (combine and sort)
+      const allPublished = [
+        ...projects.filter((p: any) => p.published).map((p: any) => ({
+          _id: p._id,
+          title: p.title,
+          type: 'project' as const,
+          date: p.updatedAt || p.createdAt
+        })),
+        ...blogs.filter((b: any) => b.published).map((b: any) => ({
+          _id: b._id,
+          title: b.title,
+          type: 'blog' as const,
+          date: b.updatedAt || b.createdAt
+        }))
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+      
+      setStats({
+        totalProjects: projects.length,
+        totalBlogPosts: blogs.length,
+        totalFeatured: featuredCount,
+        totalPublished: publishedCount,
+        recentPublished: allPublished
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +105,7 @@ export default function Dashboard() {
       setIsAuthenticated(true);
       localStorage.setItem('dashboard_auth', 'true');
       setError('');
+      fetchDashboardStats();
     } else {
       setError('Invalid username or password');
     }
@@ -153,12 +223,119 @@ export default function Dashboard() {
             </div>
           </div>
           
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Projects</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
+                </div>
+                <div className="rounded-full bg-blue-100 p-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2">
+                <Link 
+                  href="/dashboard/projects" 
+                  className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                >
+                  View all projects →
+                </Link>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Blog Posts</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalBlogPosts}</p>
+                </div>
+                <div className="rounded-full bg-indigo-100 p-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2">
+                <Link 
+                  href="/dashboard/blog" 
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  View all blog posts →
+                </Link>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Featured Items</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalFeatured}</p>
+                </div>
+                <div className="rounded-full bg-yellow-100 p-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="text-sm text-gray-600">
+                  Items marked as featured
+                </span>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Published</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalPublished}</p>
+                </div>
+                <div className="rounded-full bg-green-100 p-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="text-sm text-gray-600">
+                  Public content
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Recently Published */}
+          <div className="p-6 border-t border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Recently Published</h3>
+            {stats.recentPublished.length > 0 ? (
+              <div className="space-y-3">
+                {stats.recentPublished.map((item) => (
+                  <div key={item._id} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-md ${
+                      item.type === 'project' ? 'bg-blue-100 text-blue-800' : 'bg-indigo-100 text-indigo-800'
+                    }`}>
+                      {item.type === 'project' ? 'Project' : 'Blog Post'}
+                    </span>
+                    <span className="ml-3 font-medium text-gray-900">{item.title}</span>
+                    <span className="ml-auto text-xs text-gray-500">{new Date(item.date).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No recently published items.</p>
+            )}
+          </div>
+          
           {/* Dashboard menu */}
-          <div className="p-6">
+          <div className="p-6 border-t border-gray-200">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Manage Your Site</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <a href="/dashboard/profile" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
+              <Link href="/dashboard/profile" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
                 <div className="flex items-center">
                   <div className="rounded-full bg-blue-100 p-3">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,9 +347,9 @@ export default function Dashboard() {
                     <p className="text-gray-600">Update your personal information</p>
                   </div>
                 </div>
-              </a>
+              </Link>
               
-              <a href="/dashboard/projects" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
+              <Link href="/dashboard/projects" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
                 <div className="flex items-center">
                   <div className="rounded-full bg-blue-100 p-3">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -184,9 +361,9 @@ export default function Dashboard() {
                     <p className="text-gray-600">Manage your project portfolio</p>
                   </div>
                 </div>
-              </a>
+              </Link>
               
-              <a href="/dashboard/blog" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
+              <Link href="/dashboard/blog" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
                 <div className="flex items-center">
                   <div className="rounded-full bg-blue-100 p-3">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -198,9 +375,9 @@ export default function Dashboard() {
                     <p className="text-gray-600">Manage your blog posts</p>
                   </div>
                 </div>
-              </a>
+              </Link>
               
-              <a href="/dashboard/about" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
+              <Link href="/dashboard/about" className="block p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-colors">
                 <div className="flex items-center">
                   <div className="rounded-full bg-blue-100 p-3">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -212,7 +389,7 @@ export default function Dashboard() {
                     <p className="text-gray-600">Edit your about page content</p>
                   </div>
                 </div>
-              </a>
+              </Link>
             </div>
             
             <div className="mt-8 bg-blue-50 p-4 rounded-lg border border-blue-200">

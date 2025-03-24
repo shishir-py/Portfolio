@@ -1,121 +1,121 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import ProjectForm from '../../components/ProjectForm';
+import BlogForm from '../../components/BlogForm';
 
-interface Project {
+interface Blog {
   _id: string;
   title: string;
-  description: string;
+  slug: string;
+  excerpt: string;
   imageUrl?: string;
   tags?: string[];
-  slug: string;
   featured?: boolean;
+  published?: boolean;
+  publishedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export default function ProjectsManagement() {
-  const [projects, setProjects] = useState<Project[]>([]);
+export default function BlogsManagement() {
+  const [blogs, setBlogs] = useState<Blog[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [currentBlog, setCurrentBlog] = useState<Blog | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [blogToDelete, setBlogToDelete] = useState<Blog | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   
-  // Fetch projects from MongoDB on component mount
   useEffect(() => {
-    fetchProjects();
+    fetchBlogs();
   }, []);
 
-  const fetchProjects = async () => {
+  const fetchBlogs = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/projects');
+      const response = await fetch('/api/blogs');
       if (!response.ok) {
-        throw new Error('Failed to fetch projects');
+        throw new Error('Failed to fetch blogs');
       }
       const data = await response.json();
-      setProjects(data);
+      setBlogs(data);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      console.error('Error fetching blogs:', error);
     } finally {
       setIsLoading(false);
     }
   };
   
   const handleAddNew = () => {
-    setCurrentProject(null);
+    setCurrentBlog(null);
     setIsFormOpen(true);
   };
   
-  const handleEdit = (project) => {
-    setCurrentProject(project);
+  const handleEdit = (blog: Blog) => {
+    setCurrentBlog(blog);
     setIsFormOpen(true);
   };
   
-  const handleDelete = (project) => {
-    setProjectToDelete(project);
+  const handleDelete = (blog: Blog) => {
+    setBlogToDelete(blog);
     setIsDeleting(true);
   };
   
   const confirmDelete = async () => {
     try {
-      const response = await fetch('/api/projects', {
+      const response = await fetch('/api/blogs', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ _id: projectToDelete?._id }),
+        body: JSON.stringify({ _id: blogToDelete?._id }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete project');
+        throw new Error('Failed to delete blog');
       }
 
-      await fetchProjects();
+      await fetchBlogs();
       setIsDeleting(false);
-      setProjectToDelete(null);
+      setBlogToDelete(null);
       
-      setSuccessMessage('Project deleted successfully');
+      setSuccessMessage('Blog deleted successfully');
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
-      console.error('Error deleting project:', error);
+      console.error('Error deleting blog:', error);
     }
   };
   
-  const handleSubmitProject = async (projectData, isEditing) => {
+  const handleSubmitBlog = async (blogData: any, isEditing: boolean) => {
     try {
       const method = isEditing ? 'PUT' : 'POST';
       
-      console.log('Submitting project data:', projectData);
+      console.log('Submitting blog data:', blogData);
       
-      const response = await fetch('/api/projects', {
+      const response = await fetch('/api/blogs', {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(projectData),
+        body: JSON.stringify(blogData),
       });
 
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.details || `Failed to ${isEditing ? 'update' : 'create'} project`);
+        throw new Error(data.details || `Failed to ${isEditing ? 'update' : 'create'} blog`);
       }
 
-      await fetchProjects();
+      await fetchBlogs();
       setIsFormOpen(false);
       
-      setSuccessMessage(isEditing ? 'Project updated successfully' : 'Project added successfully');
+      setSuccessMessage(isEditing ? 'Blog updated successfully' : 'Blog added successfully');
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
-      console.error('Error submitting project:', error);
+      console.error('Error submitting blog:', error);
       setSuccessMessage(`Error: ${error.message}`);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
@@ -130,9 +130,9 @@ export default function ProjectsManagement() {
     return (
       <div className="py-6">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ProjectForm 
-            project={currentProject} 
-            onSubmit={handleSubmitProject} 
+          <BlogForm 
+            blog={currentBlog} 
+            onSubmit={handleSubmitBlog} 
             onCancel={handleFormCancel} 
           />
         </div>
@@ -156,7 +156,7 @@ export default function ProjectsManagement() {
     <div className="py-6 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Blog Posts</h1>
           <button
             onClick={handleAddNew}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -164,7 +164,7 @@ export default function ProjectsManagement() {
             <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
-            Add New Project
+            Add New Blog
           </button>
         </div>
         
@@ -184,14 +184,14 @@ export default function ProjectsManagement() {
         )}
         
         <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
-          {projects.length === 0 ? (
+          {blogs.length === 0 ? (
             <div className="p-8 text-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2.5 2.5 0 00-2.5-2.5H15" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No projects</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No blog posts</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Get started by creating a new project.
+                Get started by creating a new blog post.
               </p>
               <div className="mt-6">
                 <button
@@ -201,39 +201,48 @@ export default function ProjectsManagement() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
-                  Add Project
+                  Add Blog Post
                 </button>
               </div>
             </div>
           ) : (
             <ul className="divide-y divide-gray-200">
-              {projects.map((project) => (
-                <li key={project._id} className="p-4 hover:bg-gray-50">
+              {blogs.map((blog) => (
+                <li key={blog._id} className="p-4 hover:bg-gray-50">
                   <div className="flex justify-between items-start">
                     <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0 h-16 w-24 relative overflow-hidden rounded bg-gray-100">
-                        {project.imageUrl && (
+                        {blog.imageUrl && (
                           <img
-                            src={project.imageUrl}
-                            alt={project.title}
+                            src={blog.imageUrl}
+                            alt={blog.title}
                             className="object-cover w-full h-full"
                           />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center">
-                          <h2 className="text-xl font-medium text-gray-900">{project.title}</h2>
-                          {project.featured && (
+                          <h2 className="text-xl font-medium text-gray-900">{blog.title}</h2>
+                          {blog.featured && (
                             <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                               Featured
                             </span>
                           )}
+                          {blog.published ? (
+                            <span className="ml-2 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                              Published
+                            </span>
+                          ) : (
+                            <span className="ml-2 px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                              Draft
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 mt-1">
-                          {project.description}
+                          {blog.excerpt}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {(project.tags || []).map(tag => (
+                          {(blog.tags || []).map(tag => (
                             <span 
                               key={tag} 
                               className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
@@ -246,13 +255,13 @@ export default function ProjectsManagement() {
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleEdit(project)}
+                        onClick={() => handleEdit(blog)}
                         className="text-blue-600 hover:text-blue-800"
                       >
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(project)}
+                        onClick={() => handleDelete(blog)}
                         className="text-red-600 hover:text-red-800"
                       >
                         Delete
@@ -284,11 +293,11 @@ export default function ProjectsManagement() {
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Delete Project
+                      Delete Blog Post
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        Are you sure you want to delete "{projectToDelete?.title}"? This action cannot be undone.
+                        Are you sure you want to delete "{blogToDelete?.title}"? This action cannot be undone.
                       </p>
                     </div>
                   </div>
@@ -306,7 +315,7 @@ export default function ProjectsManagement() {
                   type="button"
                   onClick={() => {
                     setIsDeleting(false);
-                    setProjectToDelete(null);
+                    setBlogToDelete(null);
                   }}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >

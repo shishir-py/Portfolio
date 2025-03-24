@@ -1,5 +1,6 @@
-import { connectToDatabase } from '../../../lib/mongodb';
 import { NextResponse } from 'next/server';
+import dbConnect from '../../../lib/mongodb';
+import mongoose from 'mongoose';
 
 // Default profile data
 const defaultProfile = {
@@ -44,17 +45,11 @@ function serializeDocument(doc) {
 export async function GET() {
   try {
     console.log('Attempting to connect to database...');
-    const { db } = await connectToDatabase();
-
-    // Handle missing database connection
-    if (!db) {
-      console.warn('Database connection not available in API, using default profile');
-      return NextResponse.json(defaultProfile);
-    }
-
+    await dbConnect();
     console.log('Successfully connected to database, fetching profile...');
+
     // Attempt to get the profile from the database
-    const profile = await db.collection('profile').findOne({});
+    const profile = await mongoose.connection.collection('profile').findOne({});
 
     // If profile exists, return it (serialized)
     if (profile) {
@@ -65,7 +60,7 @@ export async function GET() {
     console.log('No profile found, creating default profile...');
     // If no profile exists, create a default one
     try {
-      const result = await db.collection('profile').insertOne(defaultProfile);
+      const result = await mongoose.connection.collection('profile').insertOne(defaultProfile);
       const newProfile = { ...defaultProfile, _id: result.insertedId };
       console.log('Default profile created:', newProfile);
       return NextResponse.json(serializeDocument(newProfile));
@@ -83,22 +78,13 @@ export async function GET() {
 export async function PUT(request) {
   try {
     console.log('Attempting to connect to database for profile update...');
-    const { db } = await connectToDatabase();
-    
-    // Handle missing database connection
-    if (!db) {
-      console.error('Database connection not available for profile update');
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      );
-    }
+    await dbConnect();
     
     const profileData = await request.json();
     console.log('Received profile update data:', profileData);
     
     // Check if profile exists
-    const existingProfile = await db.collection('profile').findOne({});
+    const existingProfile = await mongoose.connection.collection('profile').findOne({});
     console.log('Existing profile:', existingProfile);
     
     let result;
@@ -108,7 +94,7 @@ export async function PUT(request) {
       const { _id, ...updateData } = profileData;
       console.log('Updating existing profile with data:', updateData);
       
-      result = await db.collection('profile').findOneAndUpdate(
+      result = await mongoose.connection.collection('profile').findOneAndUpdate(
         { _id: existingProfile._id },
         { $set: updateData },
         { returnDocument: 'after' }
@@ -119,7 +105,7 @@ export async function PUT(request) {
     } else {
       // Create new profile if none exists
       console.log('Creating new profile with data:', profileData);
-      result = await db.collection('profile').insertOne(profileData);
+      result = await mongoose.connection.collection('profile').insertOne(profileData);
       const newProfile = { ...profileData, _id: result.insertedId };
       
       console.log('New profile created successfully:', newProfile);

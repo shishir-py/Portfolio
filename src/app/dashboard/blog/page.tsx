@@ -72,7 +72,7 @@ export default function BlogManagement() {
   const confirmDelete = async () => {
     try {
       setIsSubmitting(true);
-      const response = await fetch(`/api/blog/${postToDelete.slug}`, {
+      const response = await fetch(`/api/blog/${postToDelete._id}`, {
         method: 'DELETE',
       });
       
@@ -104,7 +104,7 @@ export default function BlogManagement() {
       
       if (postData._id) {
         // Update existing post
-        response = await fetch(`/api/blog/${postData.slug}`, {
+        response = await fetch(`/api/blog/${postData._id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -225,6 +225,88 @@ export default function BlogManagement() {
                             <span>{post.category}</span>
                             <span>•</span>
                             <span>{post.date}</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await fetch('/api/blog/toggle', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      id: post._id,
+                                      property: 'featured',
+                                    }),
+                                  });
+                                  await fetchPosts();
+                                } catch (error) {
+                                  console.error('Error toggling featured status:', error);
+                                }
+                              }}
+                              className={`text-xs px-2 py-1 rounded ${
+                                post.featured 
+                                  ? 'bg-yellow-100 text-yellow-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {post.featured ? '★ Featured' : '☆ Not Featured'}
+                            </button>
+                            
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await fetch('/api/blog/toggle', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      id: post._id,
+                                      property: 'published',
+                                    }),
+                                  });
+                                  await fetchPosts();
+                                } catch (error) {
+                                  console.error('Error toggling published status:', error);
+                                }
+                              }}
+                              className={`text-xs px-2 py-1 rounded ${
+                                post.published 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {post.published ? '✓ Published' : '◯ Draft'}
+                            </button>
+                            
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await fetch('/api/blog/toggle', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      id: post._id,
+                                      property: 'addToHome',
+                                    }),
+                                  });
+                                  await fetchPosts();
+                                } catch (error) {
+                                  console.error('Error toggling homepage status:', error);
+                                }
+                              }}
+                              className={`text-xs px-2 py-1 rounded ${
+                                post.addToHome 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {post.addToHome ? '🏠 On Homepage' : '🏠 Not on Homepage'}
+                            </button>
                           </div>
                         </div>
                       </div>

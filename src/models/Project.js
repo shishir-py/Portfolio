@@ -20,7 +20,17 @@ const ProjectSchema = new mongoose.Schema({
   detailedDescription: {
     type: String,
   },
+  details: {
+    type: String,
+  },
+  content: {
+    type: String,
+  },
   technologies: {
+    type: [String],
+    default: [],
+  },
+  tags: {
     type: [String],
     default: [],
   },
@@ -34,10 +44,21 @@ const ProjectSchema = new mongoose.Schema({
   demoUrl: {
     type: String,
   },
+  repoUrl: {
+    type: String,
+  },
   githubUrl: {
     type: String,
   },
   featured: {
+    type: Boolean,
+    default: false,
+  },
+  published: {
+    type: Boolean,
+    default: false,
+  },
+  addToHome: {
     type: Boolean,
     default: false,
   },
@@ -55,5 +76,5 @@ const ProjectSchema = new mongoose.Schema({
   },
 });
 
-// Create and export the model
-export default mongoose.models.Project || mongoose.model('Project', ProjectSchema); 
+// Create and export the model with explicit collection name
+export default mongoose.models.Project || mongoose.model('Project', ProjectSchema, 'projects'); 
