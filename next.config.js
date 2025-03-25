@@ -15,6 +15,7 @@ const nextConfig = {
     images: {
       domains: ['placehold.co', 'res.cloudinary.com'],
       dangerouslyAllowSVG: true,
+      unoptimized: true,
     },
     
     // Environment variables that will be used client-side
@@ -23,7 +24,9 @@ const nextConfig = {
       NEXT_PUBLIC_ADMIN_USERNAME: process.env.NEXT_PUBLIC_ADMIN_USERNAME,
       NEXT_PUBLIC_ADMIN_PASSWORD: process.env.NEXT_PUBLIC_ADMIN_PASSWORD,
     },
-  };
+    output: 'export',
+    basePath: process.env.NODE_ENV === 'production' ? '/your-repo-name' : '',
+    assetPrefix: process.env.NODE_ENV === 'production' ? '/your-repo-name/' : '',
+};
 
-  
-  module.exports = nextConfig;
+module.exports = nextConfig;
