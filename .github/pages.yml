@@ -1,5 +1,0 @@
-pages:
-  # Deploy from the "gh-pages" branch
-  build_and_deployment:
-    deploymentSource: 
-      branch: gh-pages 
