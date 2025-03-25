@@ -25,8 +25,8 @@ const nextConfig = {
       NEXT_PUBLIC_ADMIN_PASSWORD: process.env.NEXT_PUBLIC_ADMIN_PASSWORD,
     },
     output: 'export',
-    basePath: process.env.NODE_ENV === 'production' ? '/your-repo-name' : '',
-    assetPrefix: process.env.NODE_ENV === 'production' ? '/your-repo-name/' : '',
+    basePath: process.env.NODE_ENV === 'production' ? '/Portfolio' : '',
+    assetPrefix: process.env.NODE_ENV === 'production' ? '/Portfolio/' : '',
 };
 
 module.exports = nextConfig;
